@@ -20,10 +20,28 @@ impl Parser {
 	pub fn new(tokens: Vec<Token>) -> Self {
 		Parser { tokens, current: 0 }
 	}
+	pub fn parse(&mut self) -> Option<Expr> {
+		self.expression().ok()
+	}
 
 	fn error(&mut self, message: &str) -> ParseError {
 		error(self.peek(), message.to_string());
 		ParseError{}
+	}
+	fn synchronise(&mut self) {
+		use TokenType::*;
+
+		self.advance();
+		while !self.is_at_end() { 
+			if self.previous().kind == SEMICOLON { return; }
+
+			match self.peek().kind {
+				CONST | VAR | PROCEDURE | IF | WHILE => return,
+				_ => ()
+			}
+
+			self.advance();
+		}
 	}
 
 	// token parsing functions
@@ -112,7 +130,7 @@ impl Parser {
 			Ok(Expr::Grouping(Box::new(expr)))
 		}
 		else {
-			Err(self.error("Invalid primary expression"))
+			Err(self.error("Expected an expression"))
 		}
 	}
 }

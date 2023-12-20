@@ -4,6 +4,7 @@ mod scanner;
 mod expressions;
 mod parser;
 
+use crate::error::had_error;
 use scanner::Scanner;
 use parser::Parser;
 
@@ -15,5 +16,10 @@ fn main() {
 
 	let mut scanner = Scanner::new(data);
 	let tokens = scanner.scan_tokens();
-	let parser = Parser::new(tokens);
+	let mut parser = Parser::new(tokens);
+	let ast = parser.parse();
+
+	if had_error() || ast.is_none() { return }
+
+	println!("{}", ast.unwrap());
 }
