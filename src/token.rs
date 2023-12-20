@@ -16,7 +16,8 @@ pub enum TokenType {
 
 	IDENTIFIER, NUMBER,
 
-	VAR, BEGIN, END,
+	CONST, VAR,
+	BEGIN, END,
 	WHILE, DO,
 	IF, THEN,
 	PROCEDURE, CALL,

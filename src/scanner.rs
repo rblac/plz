@@ -58,6 +58,7 @@ impl Scanner {
 		use TokenType::*;
 		match s {
 			"var" => Some(VAR),
+			"const" => Some(CONST),
 			"begin" => Some(BEGIN),
 			"end" => Some(END),
 			"while" => Some(WHILE),
