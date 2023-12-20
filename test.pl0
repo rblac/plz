@@ -1,0 +1,17 @@
+var x, squ;
+
+procedure square; # assigns the square of x to squ
+begin
+   squ := x * x;
+end
+
+begin
+   x := 1;
+   y := 1 + 2 - 3 * 4 / 6;
+   ?x; ?y;
+   while x <= 10 do
+   begin
+      call square;
+      ?squ
+   end
+end.
