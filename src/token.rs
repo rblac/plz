@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum TokenType {
 	LEFT_PAREN, RIGHT_PAREN,
@@ -24,12 +24,12 @@ pub enum TokenType {
 
 	EOF
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Literal {
 	Number(i32),
 	Identifier(String),
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token {
 	pub kind: TokenType,
 	pub lexeme: String,
