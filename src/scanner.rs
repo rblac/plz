@@ -1,11 +1,12 @@
-use crate::{token::*, error::*};
+use crate::token::*;
 
 pub struct Scanner {
 	source: String,
 	tokens: Vec<Token>,
 	start: usize,
 	current: usize,
-	line: usize
+	line: usize,
+	failed: bool,
 }
 impl Scanner {
 	pub fn new(source: String) -> Self {
@@ -13,7 +14,13 @@ impl Scanner {
 			source,
 			tokens: vec![],
 			start: 0, current: 0, line: 1,
+			failed: false,
 		}
+	}
+
+	fn error(&mut self, line: usize, msg: String) {
+		eprintln!("{line}: {msg}");
+		self.failed = true;
 	}
 	
 	fn is_at_end(&self) -> bool {
@@ -72,7 +79,7 @@ impl Scanner {
 		let substr = &self.source.as_str()[self.start..self.current];
 		let lit = substr.parse::<i32>();
 		if lit.is_err() {
-			error(self.line, format!("Failed to parse number literal `{substr}`: {}", lit.clone().unwrap_err()));
+			self.error(self.line, format!("Failed to parse number literal `{substr}`: {}", lit.clone().unwrap_err()));
 		}
 
 		self.add_token_full(Some(Literal::Number(lit.unwrap_or(-1))), TokenType::NUMBER);
@@ -112,7 +119,7 @@ impl Scanner {
 			':' => {
 				if self.matches('=') { self.add_token(COLON_EQU); }
 				else {
-					error(self.line, "Invalid token; Expected `:=`".to_string());
+					self.error(self.line, "Invalid token; Expected `:=`".to_string());
 				}
 			},
 			'=' => {
@@ -137,7 +144,7 @@ impl Scanner {
 				} else if Self::is_alpha(o) {
 					self.identifier();
 				} else {
-					error(self.line, format!("Unexpected character: {c}"));
+					self.error(self.line, format!("Unexpected character: {c}"));
 				}
 			},
 		}

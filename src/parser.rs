@@ -1,14 +1,29 @@
-use crate::{token::{Token, TokenType}, expressions::Expr};
+use std::{error::Error, fmt::Display};
+
+use crate::{token::{Token, TokenType}, expressions::Expr, error::error};
+
+#[derive(Debug)]
+struct ParseError;
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str("Parser error")
+    }
+}
+impl Error for ParseError {}
 
 pub struct Parser {
 	tokens: Vec<Token>,
 	current: usize,
 }
-
 #[allow(unused)]
 impl Parser {
 	pub fn new(tokens: Vec<Token>) -> Self {
 		Parser { tokens, current: 0 }
+	}
+
+	fn error(&mut self, message: &str) -> ParseError {
+		error(self.peek(), message.to_string());
+		ParseError{}
 	}
 
 	// token parsing functions
@@ -34,70 +49,70 @@ impl Parser {
 	}
 
 	// recursive descent functions
-	fn expression(&mut self) -> Expr {
+	fn expression(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		if self.matches(&[ODD]) {
-			Expr::Unary(
+			Ok(Expr::Unary(
 				self.previous(),
-				Box::new(self.term())
-			)
+				Box::new(self.term()?)
+			))
 		} else {
 			self.equality()
 		}
 	}
-	fn equality(&mut self) -> Expr {
-		let left = self.term();
+	fn equality(&mut self) -> Result<Expr, ParseError> {
+		let left = self.term()?;
 		use TokenType::*;
 		if self.matches(&[BANG_EQU, EQU_EQU, LESS, LESS_EQU, MORE, MORE_EQU]) {
 			let operator = self.previous();
-			let right = self.term();
-			Expr::Binary(Box::new(left), operator, Box::new(right));
+			let right = self.term()?;
+			return Ok(Expr::Binary(Box::new(left), operator, Box::new(right)))
 		}
-		panic!("invalid equality operator: {}", self.previous().lexeme)
+		Err(self.error("Invalid comparison operator"))
 	}
-	fn term(&mut self) -> Expr {
+	fn term(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 
 		let prefix =
 			if self.matches(&[MINUS, PLUS]) { Some(self.previous()) }
 			else { None };
 
-		let mut expr = self.factor();
+		let mut expr = self.factor()?;
 		if let Some(p) = prefix {
 			expr = Expr::Unary(p, Box::new(expr));
 		}
 
 		while self.matches(&[MINUS, PLUS]) {
 			let operator = self.previous();
-			let right = self.factor();
+			let right = self.factor()?;
 			expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
 		}
-		expr
+		Ok(expr)
 	}
-	fn factor(&mut self) -> Expr {
-		let mut expr = self.primary();
+	fn factor(&mut self) -> Result<Expr, ParseError> {
+		let mut expr = self.primary()?;
 		use TokenType::*;
 		while self.matches(&[STAR, SLASH]) {
 			let operator = self.previous();
-			let right = self.primary();
+			let right = self.primary()?;
 			expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
 		}
-		expr
+		Ok(expr)
 	}
-	fn primary(&mut self) -> Expr {
+	fn primary(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		if self.matches(&[IDENTIFIER, NUMBER]) {
-			Expr::Literal(self.previous())
+			Ok(Expr::Literal(self.previous()))
 		}
 		else if self.matches(&[LEFT_PAREN]) {
-			let expr = self.expression();
+			let expr = self.expression()?;
 			if !self.matches(&[RIGHT_PAREN]) {
-				panic!("Missing ')' after expression: {expr}")
+				return Err(self.error("Missing ')' after expression"))
 			}
-			Expr::Grouping(Box::new(expr))
+			Ok(Expr::Grouping(Box::new(expr)))
 		}
 		else {
-			panic!("Invalid primary expression: {}", self.previous().lexeme)
+			Err(self.error("Invalid primary expression"))
 		}
 	}
 }
