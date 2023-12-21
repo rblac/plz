@@ -67,28 +67,28 @@ impl Parser {
 	}
 
 	// recursive descent functions
-	fn expression(&mut self) -> Result<Expr, ParseError> {
+	fn condition(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		if self.matches(&[ODD]) {
 			Ok(Expr::Unary(
 				self.previous(),
-				Box::new(self.term()?)
+				Box::new(self.expression()?)
 			))
 		} else {
 			self.equality()
 		}
 	}
 	fn equality(&mut self) -> Result<Expr, ParseError> {
-		let left = self.term()?;
+		let left = self.expression()?;
 		use TokenType::*;
 		if self.matches(&[BANG_EQU, EQU_EQU, LESS, LESS_EQU, MORE, MORE_EQU]) {
 			let operator = self.previous();
-			let right = self.term()?;
+			let right = self.expression()?;
 			return Ok(Expr::Binary(Box::new(left), operator, Box::new(right)))
 		}
 		Err(self.error("Invalid comparison operator"))
 	}
-	fn term(&mut self) -> Result<Expr, ParseError> {
+	fn expression(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 
 		let prefix =

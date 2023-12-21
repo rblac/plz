@@ -20,6 +20,5 @@ fn main() {
 	let ast = parser.parse();
 
 	if had_error() || ast.is_none() { return }
-
 	println!("{}", ast.unwrap());
 }

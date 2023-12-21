@@ -10,8 +10,8 @@ statement = [ ident ":=" expression | "call" ident
               | "if" condition "then" statement 
               | "while" condition "do" statement ];
 
-expression     = "odd" term | equality;
-equality       = term ("=="|"!="|"<"|"<="|">"|">=") term;
-term           = [ "+"|"-"] factor { ("+"|"-") factor};
+condition      = "odd" expression | equality;
+equality       = expression ("=="|"!="|"<"|"<="|">"|">=") expression;
+expression     = [ "+"|"-"] factor { ("+"|"-") factor};
 factor         = primary {("*"|"/") primary};
 primary        = ident | number | "(" expression ")";
