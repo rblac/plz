@@ -3,8 +3,10 @@ mod token;
 mod scanner;
 mod expressions;
 mod parser;
+mod interpreter;
 
 use crate::error::had_error;
+use interpreter::Interpretable;
 use scanner::Scanner;
 use parser::Parser;
 
@@ -19,6 +21,11 @@ fn main() {
 	let mut parser = Parser::new(tokens);
 	let ast = parser.parse();
 
-	if had_error() || ast.is_none() { return }
-	println!("{}", ast.unwrap());
+	if had_error() || ast.is_none() {
+		eprintln!("Parsing failed, exiting");
+		std::process::exit(64);
+	}
+
+	let ast = ast.unwrap();
+	ast.interpret();
 }

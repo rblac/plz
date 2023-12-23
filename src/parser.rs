@@ -21,7 +21,7 @@ impl Parser {
 		Parser { tokens, current: 0 }
 	}
 	pub fn parse(&mut self) -> Option<Expr> {
-		self.expression().ok()
+		self.statement().ok()
 	}
 
 	fn error(&mut self, message: &str) -> ParseError {
@@ -67,6 +67,14 @@ impl Parser {
 	}
 
 	// recursive descent functions
+	fn statement(&mut self) -> Result<Expr, ParseError> {
+		use TokenType::*;
+		if self.matches(&[BANG]) {
+			let op = self.previous();
+			return Ok(Expr::Unary(op, Box::new(self.expression()?)));
+		}
+		todo!("Other statements")
+	}
 	fn condition(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		if self.matches(&[ODD]) {
