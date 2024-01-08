@@ -27,5 +27,5 @@ fn main() {
 	}
 
 	let ast = ast.unwrap();
-	ast.interpret();
+	ast.evaluate();
 }

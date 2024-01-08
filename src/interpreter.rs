@@ -32,18 +32,18 @@ impl RuntimeValue {
 }
 
 pub trait Interpretable {
-	fn interpret(&self) -> RuntimeValue;
+	fn evaluate(&self) -> RuntimeValue;
 }
 
 impl Interpretable for Expr {
-    fn interpret(&self) -> RuntimeValue {
+    fn evaluate(&self) -> RuntimeValue {
 		match self {
 			Expr::Literal(l) =>
 				RuntimeValue::from_literal(&l.literal.clone().unwrap()),
 			Expr::Grouping(e) =>
-				e.interpret(),
+				e.evaluate(),
 			Expr::Unary(op, e) => {
-				let v = e.interpret();
+				let v = e.evaluate();
 				use TokenType::*;
 				use RuntimeValue::*;
 				match op.kind {
@@ -57,8 +57,8 @@ impl Interpretable for Expr {
 				}
 			},
 			Expr::Binary(a, op, b) => {
-				let va = a.interpret();
-				let vb = b.interpret();
+				let va = a.evaluate();
+				let vb = b.evaluate();
 				use TokenType::*;
 				use RuntimeValue::*;
 				match op.kind {
@@ -69,10 +69,10 @@ impl Interpretable for Expr {
 
 					EQU_EQU  => Boolean(va.as_value() == vb.as_value()),
 					BANG_EQU => Boolean(va.as_value() != vb.as_value()),
-					LESS => Boolean(va.as_value() < vb.as_value()),
-					MORE => Boolean(va.as_value() > vb.as_value()),
 					LESS_EQU => Boolean(va.as_value() <= vb.as_value()),
 					MORE_EQU => Boolean(va.as_value() >= vb.as_value()),
+					LESS => Boolean(va.as_value() < vb.as_value()),
+					MORE => Boolean(va.as_value() > vb.as_value()),
 
 					_ => todo!("Unimplemented binary operator: {:?}", op),
 				}

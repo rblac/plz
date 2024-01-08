@@ -5,7 +5,7 @@ block = [ "const" ident "=" number {"," ident "=" number} ";"]
         { "procedure" ident ";" block ";" } statement ;
 
 statement = [ ident ":=" expression | "call" ident 
-              | "?" ident | "!" expression 
+              | "?" ident | "!" expression
               | "begin" statement {";" statement } "end" 
               | "if" condition "then" statement 
               | "while" condition "do" statement ];
