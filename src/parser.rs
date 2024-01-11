@@ -3,10 +3,9 @@ use crate::{token::{Token, TokenType}, expressions::Expr, error::error};
 
 pub enum Stmt {
 	Print(Expr),
-	PrintVar(Expr),
+	PrintVar(Token),
 	Expression(Expr),
 	Var(Token),
-	Assign(Token, Expr),
 }
 
 pub struct Parser {
@@ -87,11 +86,14 @@ impl Parser {
 		}
 		if self.matches(&[QMARK]) {
 			if self.matches(&[IDENTIFIER]) {
-				return Ok(Stmt::PrintVar(Expr::Literal(self.previous())));
+				return Ok(Stmt::PrintVar(self.previous()));
 			}
 			return Err(self.error("Expected identifier for `?` expression"));
 		}
-		todo!("Other statements")
+		if self.matches(&[CALL, BEGIN, IF, WHILE]) {
+			todo!("statement types");
+		}
+		return Ok(Stmt::Expression(self.assignment()?));
 	}
 	fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
@@ -100,6 +102,23 @@ impl Parser {
 		Ok(Stmt::Var(name))
 	}
 
+	// Probably unnecessarily complicated for this language's simple syntax, but I wanted to test it out.
+	fn assignment(&mut self) -> Result<Expr, ParseError> {
+		use TokenType::*;
+		let expr = self.expression()?;
+
+		if self.matches(&[COLON_EQU]) {
+			let equals = self.previous();
+			let value = self.assignment()?;
+
+			match expr {
+				Expr::Variable(name) => Ok(Expr::Assign(name, Box::new(value))),
+				_ => Err(self.error("Invalid lvalue"))
+			}
+		} else {
+			Ok(expr)
+		}
+	}
 	fn condition(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		if self.matches(&[ODD]) {

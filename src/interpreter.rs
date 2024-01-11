@@ -96,6 +96,11 @@ impl Interpreter {
 					Err(Self::error(&format!("Use of unitialised variable: {}", name.lexeme)))
 				}
 			},
+			Expr::Assign(name, e) => {
+				let val = self.evaluate(*e)?.as_value().ok_or(Self::error("not a value"))?;
+				self.env.assign(name, Some(val))?;
+				Ok(RuntimeValue::Value(val))
+			},
 		}
 	}
 	fn execute(&mut self, s: Stmt) -> Result<(), RuntimeError> {
@@ -109,23 +114,25 @@ impl Interpreter {
 					Err(Self::error("Expected to find value")) // me irl amirite
 				}
 			},
+			Stmt::PrintVar(name) => {
+				let val = self.env.get(name.clone())?;
+				let val = match val { Some(i) => i.to_string(), None => "unassigned".to_string() };
+				println!("> {}: {val}", name.lexeme);
+				Ok(())
+			},
 			Stmt::Var(name) =>
 				if self.env.get(name.clone()).is_ok() {
 					Err(Self::error(&format!("Double declaration of name: {}", name.lexeme)))
 				} else {
-					self.env.set(name, None);
+					self.env.assign(name, None)?;
 					Ok(())
 				},
-			Stmt::Assign(name, e) => {
-				let val = self.evaluate(e)?.as_value().ok_or(Self::error("not a value"))?;
-				if self.env.get(name.clone()).is_ok() {
-					self.env.set(name, Some(val));
-					Ok(())
-				} else {
-					Err(Self::error(&format!("Assigning to undeclared variable: {}", name.lexeme)))
+			Stmt::Expression(e) => {
+				match self.evaluate(e) {
+					Ok(_) => Ok(()),
+					Err(e) => Err(e)
 				}
 			},
-			_ => todo!("other statements"),
 		}
 	}
 }
