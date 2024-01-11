@@ -1,3 +1,5 @@
+use std::{fmt::Display, error::Error};
+
 use crate::token::{Token, TokenType};
 
 static mut FAILED: bool = false;
@@ -13,3 +15,21 @@ pub fn error(token: Token, message: String) {
 	}
 }
 pub fn had_error() -> bool { unsafe { FAILED } }
+
+#[derive(Debug)]
+pub struct ParseError;
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str("Parser error")
+    }
+}
+impl Error for ParseError {}
+
+#[derive(Debug)]
+pub struct RuntimeError { pub msg: String }
+impl Display for RuntimeError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&format!("Runtime error: {}", self.msg))
+	}
+}
+impl Error for RuntimeError {}

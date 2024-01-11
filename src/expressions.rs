@@ -7,6 +7,7 @@ pub enum Expr {
 	Grouping(Box<Expr>),
 	Unary(Token, Box<Expr>),
 	Binary(Box<Expr>, Token, Box<Expr>),
+	Variable(Token),
 }
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -16,6 +17,7 @@ impl Display for Expr {
 			Grouping(a) => f.write_str(&format!("(group {a})")),
 			Unary(o, a) => f.write_str(&format!("({} {a})", o.lexeme)),
 			Binary(a, o, b) => f.write_str(&format!("({} {a} {b})", o.lexeme)),
+			Variable(name) => f.write_str(&format!("`{}`", name.lexeme)),
 		}
     }
 }

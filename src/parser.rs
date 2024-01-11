@@ -1,21 +1,13 @@
-use std::{error::Error, fmt::Display};
-
+use crate::error::ParseError;
 use crate::{token::{Token, TokenType}, expressions::Expr, error::error};
 
 pub enum Stmt {
 	Print(Expr),
 	PrintVar(Expr),
 	Expression(Expr),
+	Var(Token),
+	Assign(Token, Expr),
 }
-
-#[derive(Debug)]
-struct ParseError;
-impl Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str("Parser error")
-    }
-}
-impl Error for ParseError {}
 
 pub struct Parser {
 	tokens: Vec<Token>,
@@ -29,7 +21,7 @@ impl Parser {
 	pub fn parse(&mut self) -> Vec<Stmt> {
 		let mut out = Vec::new();
 		while !self.is_at_end() {
-			out.push(self.statement().expect("Parsing error"));
+			out.push(self.block().expect("Parsing error"));
 		}
 		out
 	}
@@ -75,8 +67,19 @@ impl Parser {
 		}
 		false
 	}
+	fn consume(&mut self, kind: TokenType, err_msg: &str) -> Result<Token, ParseError> {
+		if self.matches(&[kind]) { Ok(self.previous()) }
+		else { Err(self.error(err_msg)) }
+	}
 
 	// recursive descent functions
+	fn block(&mut self) -> Result<Stmt, ParseError> {
+		use TokenType::*;
+		if self.matches(&[VAR]) {
+			return self.var_declaration();
+		}
+		self.statement()
+	}
 	fn statement(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
 		if self.matches(&[BANG]) {
@@ -89,6 +92,12 @@ impl Parser {
 			return Err(self.error("Expected identifier for `?` expression"));
 		}
 		todo!("Other statements")
+	}
+	fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
+		use TokenType::*;
+		let name = self.consume(IDENTIFIER, "Expected var name")?;
+		self.consume(SEMICOLON, "Expected `;` after var declaration");
+		Ok(Stmt::Var(name))
 	}
 
 	fn condition(&mut self) -> Result<Expr, ParseError> {
@@ -143,8 +152,11 @@ impl Parser {
 	}
 	fn primary(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
-		if self.matches(&[IDENTIFIER, NUMBER]) {
+		if self.matches(&[NUMBER]) {
 			Ok(Expr::Literal(self.previous()))
+		}
+		else if self.matches(&[IDENTIFIER]) {
+			Ok(Expr::Variable(self.previous()))
 		}
 		else if self.matches(&[LEFT_PAREN]) {
 			let expr = self.expression()?;

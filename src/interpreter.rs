@@ -1,6 +1,4 @@
-use std::{fmt::Display, error::Error};
-
-use crate::{token::{Literal, TokenType}, parser::Stmt, expressions::Expr};
+use crate::{token::{Literal, TokenType}, parser::Stmt, expressions::Expr, error::RuntimeError, environment::Environment};
 
 #[allow(unused)]
 pub enum RuntimeValue {
@@ -8,7 +6,6 @@ pub enum RuntimeValue {
 	Ident(String),
 	Boolean(bool),
 }
-
 #[allow(unused)]
 impl RuntimeValue {
 	fn from_literal(literal: &Literal) -> Self {
@@ -37,62 +34,16 @@ impl RuntimeValue {
 	}
 }
 
-pub trait Evaluable {
-	fn evaluate(&self) -> Option<RuntimeValue>;
-}
-impl Evaluable for Expr {
-	fn evaluate(&self) -> Option<RuntimeValue> {
-		match self {
-			Expr::Literal(l) =>
-				Some(RuntimeValue::from_literal(&l.literal.clone().unwrap())),
-			Expr::Grouping(e) => e.evaluate(),
-			Expr::Unary(op, e) => {
-				let v = e.evaluate()?.as_value()?;
-				use TokenType::*;
-				use RuntimeValue::*;
-				match op.kind {
-					MINUS => Some(Value(-v)),
-					ODD => Some(Boolean(v % 2 == 1)),
-					_ => None,
-				}
-			},
-			Expr::Binary(a, op, b) => {
-				let va = a.evaluate()?.as_value()?;
-				let vb = b.evaluate()?.as_value()?;
-				use TokenType::*;
-				use RuntimeValue::*;
-				match op.kind {
-					PLUS  => Some(Value(va + vb)),
-					MINUS => Some(Value(va - vb)),
-					STAR  => Some(Value(va * vb)),
-					SLASH => Some(Value(va / vb)),
-					EQU_EQU  => Some(Boolean(va == vb)),
-					BANG_EQU => Some(Boolean(va != vb)),
-					LESS_EQU => Some(Boolean(va <= vb)),
-					MORE_EQU => Some(Boolean(va >= vb)),
-					LESS => Some(Boolean(va < vb)),
-					MORE => Some(Boolean(va > vb)),
-					_ => None,
-				}
-			},
-		}
-	}
-}
 
-#[derive(Debug)]
-pub struct RuntimeError { msg: String }
-impl Display for RuntimeError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(&format!("Runtime error: {}", self.msg))
-	}
+pub struct Interpreter {
+	env: Environment,
 }
-impl Error for RuntimeError {}
-
-pub struct Interpreter;
 
 impl Interpreter {
 	pub fn new() -> Self {
-		Interpreter{}
+		Interpreter {
+			env: Environment::new(),
+		}
 	}
 	pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), RuntimeError> {
 		for s in statements {
@@ -103,22 +54,78 @@ impl Interpreter {
 	fn error(msg: &str) -> RuntimeError {
 		RuntimeError { msg: msg.to_string() }
 	}
+
+	fn evaluate(&mut self, expr: Expr) -> Result<RuntimeValue, RuntimeError> {
+		match expr {
+			Expr::Literal(l) =>
+				Ok(RuntimeValue::from_literal(&l.literal.clone().unwrap())),
+			Expr::Grouping(e) => self.evaluate(*e),
+			Expr::Unary(op, e) => {
+				let v = self.evaluate(*e)?.as_value().ok_or(Self::error("not a value"))?;
+				use TokenType::*;
+				use RuntimeValue::*;
+				match op.kind {
+					MINUS => Ok(Value(-v)),
+					ODD => Ok(Boolean(v % 2 == 1)),
+					_ => Err(Self::error(&format!("Invalid unary operator: {}", op.lexeme))),
+				}
+			},
+			Expr::Binary(a, op, b) => {
+				let va = self.evaluate(*a)?.as_value().ok_or(Self::error("not a value"))?;
+				let vb = self.evaluate(*b)?.as_value().ok_or(Self::error("not a value"))?;
+				use TokenType::*;
+				use RuntimeValue::*;
+				match op.kind {
+					PLUS  => Ok(Value(va + vb)),
+					MINUS => Ok(Value(va - vb)),
+					STAR  => Ok(Value(va * vb)),
+					SLASH => Ok(Value(va / vb)),
+					EQU_EQU  => Ok(Boolean(va == vb)),
+					BANG_EQU => Ok(Boolean(va != vb)),
+					LESS_EQU => Ok(Boolean(va <= vb)),
+					MORE_EQU => Ok(Boolean(va >= vb)),
+					LESS => Ok(Boolean(va < vb)),
+					MORE => Ok(Boolean(va > vb)),
+					_ => Err(Self::error(&format!("Invalid binary operator: {}", op.lexeme))),
+				}
+			},
+			Expr::Variable(name) => {
+				if let Some(v) = self.env.get(name.clone())? {
+					Ok(RuntimeValue::Value(v))
+				} else {
+					Err(Self::error(&format!("Use of unitialised variable: {}", name.lexeme)))
+				}
+			},
+		}
+	}
 	fn execute(&mut self, s: Stmt) -> Result<(), RuntimeError> {
 		match s {
 			Stmt::Print(e) => {
-				if let Some(v) = e.evaluate() {
-					if let Some(val) = v.as_value() {
-						println!("> {val}");
-						return Ok(())
-					} else {
-						Err(Self::error("Expected to find value")) // me irl amirite
-					}
-				}
-				else {
-					return Err(Self::error(&format!("Failed to evaluate: {e}")));
+				let v = self.evaluate(e)?;
+				if let Some(val) = v.as_value() {
+					println!("> {val}");
+					return Ok(())
+				} else {
+					Err(Self::error("Expected to find value")) // me irl amirite
 				}
 			},
-			_ => todo!("non-print statements"),
+			Stmt::Var(name) =>
+				if self.env.get(name.clone()).is_ok() {
+					Err(Self::error(&format!("Double declaration of name: {}", name.lexeme)))
+				} else {
+					self.env.set(name, None);
+					Ok(())
+				},
+			Stmt::Assign(name, e) => {
+				let val = self.evaluate(e)?.as_value().ok_or(Self::error("not a value"))?;
+				if self.env.get(name.clone()).is_ok() {
+					self.env.set(name, Some(val));
+					Ok(())
+				} else {
+					Err(Self::error(&format!("Assigning to undeclared variable: {}", name.lexeme)))
+				}
+			},
+			_ => todo!("other statements"),
 		}
 	}
 }

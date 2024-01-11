@@ -4,6 +4,7 @@ mod scanner;
 mod expressions;
 mod parser;
 mod interpreter;
+mod environment;
 
 use crate::error::had_error;
 use interpreter::Interpreter;
