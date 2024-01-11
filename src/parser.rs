@@ -6,6 +6,7 @@ pub enum Stmt {
 	PrintVar(Token),
 	Expression(Expr),
 	Var(Token),
+	Scope(Vec<Stmt>), // couldn't call it a 'block' because of the EBNF's naming convention
 }
 
 pub struct Parser {
@@ -74,6 +75,7 @@ impl Parser {
 	// recursive descent functions
 	fn block(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
+		// TODO consts
 		if self.matches(&[VAR]) {
 			return self.var_declaration();
 		}
@@ -81,6 +83,9 @@ impl Parser {
 	}
 	fn statement(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
+		if self.matches(&[BEGIN]) {
+			return self.scope();
+		}
 		if self.matches(&[BANG]) {
 			return Ok(Stmt::Print(self.expression()?));
 		}
@@ -93,31 +98,39 @@ impl Parser {
 		if self.matches(&[CALL, BEGIN, IF, WHILE]) {
 			todo!("statement types");
 		}
-		return Ok(Stmt::Expression(self.assignment()?));
+		return Ok(Stmt::Expression(self.assignment_or_expr()?));
 	}
 	fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
 		let name = self.consume(IDENTIFIER, "Expected var name")?;
+		// TODO comma, multiple variable declaration
 		self.consume(SEMICOLON, "Expected `;` after var declaration");
 		Ok(Stmt::Var(name))
 	}
+	fn scope(&mut self) -> Result<Stmt, ParseError> {
+		use TokenType::*;
+		let mut statements = Vec::new();
+		statements.push(self.statement()?);
+		while !self.is_at_end()
+			&& !self.matches(&[END])
+			&& self.matches(&[SEMICOLON]) {
+			statements.push(self.statement()?);
+		}
+		Ok(Stmt::Scope(statements))
+	}
 
 	// Probably unnecessarily complicated for this language's simple syntax, but I wanted to test it out.
-	fn assignment(&mut self) -> Result<Expr, ParseError> {
+	fn assignment_or_expr(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		let expr = self.expression()?;
 
 		if self.matches(&[COLON_EQU]) {
-			let equals = self.previous();
-			let value = self.assignment()?;
-
+			let value = self.assignment_or_expr()?;
 			match expr {
 				Expr::Variable(name) => Ok(Expr::Assign(name, Box::new(value))),
 				_ => Err(self.error("Invalid lvalue"))
 			}
-		} else {
-			Ok(expr)
-		}
+		} else { Ok(expr) }
 	}
 	fn condition(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;

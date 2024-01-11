@@ -15,6 +15,11 @@ impl Environment {
 			Err(RuntimeError{ msg: format!("Uninitialised variable: {}", name.lexeme) })
 		}
 	}
+	pub fn declare(&mut self, name: Token) -> Result<(), RuntimeError> {
+		if self.values.insert(name.lexeme.clone(), None).is_some() {
+			Err(RuntimeError{msg: format!("Double declaration of name: {}", name.lexeme)})
+		} else { Ok(()) }
+	}
 	pub fn assign(&mut self, name: Token, value: Option<i32>) -> Result<(), RuntimeError> {
 		if self.values.insert(name.lexeme.clone(), value).is_none() {
 			Err(RuntimeError{msg: format!("Assigning to undeclared variable: {}", name.lexeme)})

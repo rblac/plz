@@ -120,19 +120,19 @@ impl Interpreter {
 				println!("> {}: {val}", name.lexeme);
 				Ok(())
 			},
-			Stmt::Var(name) =>
-				if self.env.get(name.clone()).is_ok() {
-					Err(Self::error(&format!("Double declaration of name: {}", name.lexeme)))
-				} else {
-					self.env.assign(name, None)?;
-					Ok(())
-				},
+			Stmt::Var(name) => self.env.declare(name),
 			Stmt::Expression(e) => {
 				match self.evaluate(e) {
 					Ok(_) => Ok(()),
 					Err(e) => Err(e)
 				}
 			},
+			Stmt::Scope(statements) => {
+				for s in statements {
+					self.execute(s)?;
+				}
+				Ok(())
+			}
 		}
 	}
 }
