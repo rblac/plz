@@ -13,7 +13,6 @@ pub struct Parser {
 	tokens: Vec<Token>,
 	current: usize,
 }
-#[allow(unused)]
 impl Parser {
 	pub fn new(tokens: Vec<Token>) -> Self {
 		Parser { tokens, current: 0 }
@@ -21,7 +20,9 @@ impl Parser {
 	pub fn parse(&mut self) -> Vec<Stmt> {
 		let mut out = Vec::new();
 		while !self.is_at_end() {
-			out.push(self.block().expect("Parsing error"));
+			if let Some(block) = self.block() {
+				out.push(block);
+			}
 		}
 		out
 	}
@@ -35,13 +36,10 @@ impl Parser {
 
 		self.advance();
 		while !self.is_at_end() { 
-			if self.previous().kind == SEMICOLON { return; }
-
 			match self.peek().kind {
-				CONST | VAR | PROCEDURE | IF | WHILE => return,
-				_ => ()
+				CONST | VAR | PROCEDURE | BEGIN => return,
+				_ => {}
 			}
-
 			self.advance();
 		}
 	}
@@ -73,13 +71,16 @@ impl Parser {
 	}
 
 	// recursive descent functions
-	fn block(&mut self) -> Result<Stmt, ParseError> {
+	fn block(&mut self) -> Option<Stmt> {
 		use TokenType::*;
 		// TODO consts
-		if self.matches(&[VAR]) {
-			return self.var_declaration();
-		}
-		self.statement()
+
+		let result =
+			if self.matches(&[VAR]) { self.var_declaration() }
+			else { self.statement() };
+		if result.is_err() { self.synchronise(); }
+
+		result.ok()
 	}
 	fn statement(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
@@ -104,7 +105,7 @@ impl Parser {
 		use TokenType::*;
 		let name = self.consume(IDENTIFIER, "Expected var name")?;
 		// TODO comma, multiple variable declaration
-		self.consume(SEMICOLON, "Expected `;` after var declaration");
+		self.consume(SEMICOLON, "Expected `;` after var declaration")?;
 		Ok(Stmt::Var(name))
 	}
 	fn scope(&mut self) -> Result<Stmt, ParseError> {
@@ -128,7 +129,12 @@ impl Parser {
 			let value = self.assignment_or_expr()?;
 			match expr {
 				Expr::Variable(name) => Ok(Expr::Assign(name, Box::new(value))),
-				_ => Err(self.error("Invalid lvalue"))
+				_ => {
+					// Report, but don't throw Err -- no need to synchronise.
+					self.error(&format!("Invalid lvalue: {expr}"));
+					// return lvalue as placeholder
+					Ok(expr)
+				}
 			}
 		} else { Ok(expr) }
 	}
