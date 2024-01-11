@@ -2,6 +2,12 @@ use std::{error::Error, fmt::Display};
 
 use crate::{token::{Token, TokenType}, expressions::Expr, error::error};
 
+pub enum Stmt {
+	Print(Expr),
+	PrintVar(Expr),
+	Expression(Expr),
+}
+
 #[derive(Debug)]
 struct ParseError;
 impl Display for ParseError {
@@ -20,8 +26,12 @@ impl Parser {
 	pub fn new(tokens: Vec<Token>) -> Self {
 		Parser { tokens, current: 0 }
 	}
-	pub fn parse(&mut self) -> Option<Expr> {
-		self.statement().ok()
+	pub fn parse(&mut self) -> Vec<Stmt> {
+		let mut out = Vec::new();
+		while !self.is_at_end() {
+			out.push(self.statement().expect("Parsing error"));
+		}
+		out
 	}
 
 	fn error(&mut self, message: &str) -> ParseError {
@@ -67,14 +77,20 @@ impl Parser {
 	}
 
 	// recursive descent functions
-	fn statement(&mut self) -> Result<Expr, ParseError> {
+	fn statement(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
 		if self.matches(&[BANG]) {
-			let op = self.previous();
-			return Ok(Expr::Unary(op, Box::new(self.expression()?)));
+			return Ok(Stmt::Print(self.expression()?));
+		}
+		if self.matches(&[QMARK]) {
+			if self.matches(&[IDENTIFIER]) {
+				return Ok(Stmt::PrintVar(Expr::Literal(self.previous())));
+			}
+			return Err(self.error("Expected identifier for `?` expression"));
 		}
 		todo!("Other statements")
 	}
+
 	fn condition(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		if self.matches(&[ODD]) {

@@ -6,7 +6,7 @@ mod parser;
 mod interpreter;
 
 use crate::error::had_error;
-use interpreter::Interpretable;
+use interpreter::Interpreter;
 use scanner::Scanner;
 use parser::Parser;
 
@@ -21,11 +21,14 @@ fn main() {
 	let mut parser = Parser::new(tokens);
 	let ast = parser.parse();
 
-	if had_error() || ast.is_none() {
+	if had_error() {
 		eprintln!("Parsing failed, exiting");
 		std::process::exit(64);
 	}
 
-	let ast = ast.unwrap();
-	ast.evaluate();
+	let mut runtime = Interpreter::new();
+	let exc = runtime.interpret(ast);
+	if exc.is_err() {
+		println!("Error! {}", exc.unwrap_err());
+	}
 }
