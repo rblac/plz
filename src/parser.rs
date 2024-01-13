@@ -50,7 +50,7 @@ impl Parser {
 
 	// token parsing functions
 	fn peek(&self) -> Token{ self.tokens[self.current].clone() }
-	fn is_at_end(&self) -> bool { self.peek().kind == TokenType::EOF }
+	fn is_at_end(&self) -> bool { self.peek().kind == TokenType::DOT }
 	fn previous(&mut self) -> Token { self.tokens[self.current-1].clone() }
 	fn advance(&mut self) -> Token {
 		if !self.is_at_end() { self.current += 1; }
