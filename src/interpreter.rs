@@ -115,6 +115,14 @@ impl Interpreter {
 				println!("> {}: {val}", name.lexeme);
 				Ok(())
 			},
+			Stmt::Const(consts) => {
+				for (name, value) in consts {
+					let v = RuntimeValue::from_literal(&value.literal.unwrap())
+						.as_value().expect("Not a value");
+					env.borrow_mut().declare_const(name, v)?;
+				}
+				Ok(())
+			}
 			Stmt::Var(names) => {
 				for name in names {
 					env.borrow_mut().declare_var(name)?;

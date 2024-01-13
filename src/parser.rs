@@ -3,8 +3,9 @@ use crate::{token::{Token, TokenType}, expressions::Expr, error::error};
 
 #[derive(Clone)]
 pub enum Stmt {
-	Var(Vec<Token>),
 	Proc(Token, Box<Vec<Stmt>>),
+	Const(Vec<(Token, Token)>),
+	Var(Vec<Token>),
 
 	Print(Expr),
 	PrintVar(Token),
@@ -80,11 +81,14 @@ impl Parser {
 		use TokenType::*;
 		let mut out = Vec::new();
 
+		if self.matches(&[CONST]) {
+			let consts = self.const_declaration();
+			if let Some(c) = consts.ok() { out.push(c); }
+		}
 		if self.matches(&[VAR]) {
 			let vars = self.var_declaration();
 			if let Some(v) = vars.ok() { out.push(v); }
 		}
-		// TODO consts
 		while self.matches(&[PROCEDURE]) {
 			let proc = self.proc_declaration();
 			if let Some(p) = proc.ok() { out.push(p); }
@@ -127,6 +131,19 @@ impl Parser {
 			todo!("statement types");
 		}
 		return Ok(self.assignment_or_expr()?);
+	}
+	fn const_declaration(&mut self) -> Result<Stmt, ParseError> {
+		use TokenType::*;
+		let mut consts: Vec<(Token, Token)> = Vec::new();
+		loop {
+			let name = self.consume(IDENTIFIER, "Expected const name")?;
+			self.consume(EQU, &format!("Expected `=` after const name: {}", name.lexeme))?;
+			let value = self.consume(NUMBER, "Expected const value")?;
+			consts.push((name, value));
+			if !self.matches(&[COMMA]) { break }
+		}
+		self.consume(SEMICOLON, "Expected `;` after const declaration")?;
+		Ok(Stmt::Const(consts))
 	}
 	fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;

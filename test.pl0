@@ -1,18 +1,24 @@
-var x, y, squ;
+var x, y, z;
 
-procedure square; # assigns the square of x to squ
-begin
-   squ := x * x;
-end;
+procedure foo;
+	const a = 20, b = 30;
+	var c;
+	procedure bar;
+		var d, e;
+		begin
+			! a + b;
+			c := 20;
+			d := 10;
+			? d;
+		end;
+	begin
+		?c;
+		call bar;
+		?c;
+		? d # should crash
+	end;
 
 begin
-   x := 2;
-   y := 1 + 2 - 3 * 4 / 6;
-   ?x; ?y;
-   while x <= 10 do
-   begin
-      call square;
-      ?squ;
-	  x := squ;
-   end
+	x := 5; y := 100;
+	call foo;
 end.
