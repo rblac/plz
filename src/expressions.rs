@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::token::Token;
 
+#[derive(Clone)]
 pub enum Expr {
 	Literal(Token),
 	Grouping(Box<Expr>),

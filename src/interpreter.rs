@@ -134,8 +134,23 @@ impl Interpreter {
 				Ok(())
 			}
 			Stmt::Assign(name, e) => {
-				let val = self.evaluate(e)?.as_value().ok_or(Self::error("not a value"))?;
+				let val = self.evaluate(e)?
+					.as_value().ok_or(Self::error("not a value"))?;
 				self.env.assign(name, Some(val))?;
+				Ok(())
+			},
+			Stmt::If(condition, then_branch) => {
+				if self.evaluate(condition)?
+					.as_bool().ok_or(Self::error("not a boolean"))? {
+					self.execute(*then_branch)?;
+				}
+				Ok(())
+			},
+			Stmt::While(condition, branch) => {
+				while self.evaluate(condition.clone())?
+					.as_bool().ok_or(Self::error("not a boolean"))? {
+					self.execute(*branch.clone())?;
+				}
 				Ok(())
 			},
 		}

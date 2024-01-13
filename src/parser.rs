@@ -1,6 +1,7 @@
 use crate::error::ParseError;
 use crate::{token::{Token, TokenType}, expressions::Expr, error::error};
 
+#[derive(Clone)]
 pub enum Stmt {
 	Print(Expr),
 	PrintVar(Token),
@@ -8,6 +9,8 @@ pub enum Stmt {
 	Var(Vec<Token>),
 	Scope(Vec<Stmt>), // couldn't call it a 'block' because of the EBNF's naming convention
 	Assign(Token, Expr),
+	If(Expr, Box<Stmt>),
+	While(Expr, Box<Stmt>),
 }
 
 pub struct Parser {
@@ -97,7 +100,13 @@ impl Parser {
 			}
 			return Err(self.error("Expected identifier for `?` expression"));
 		}
-		if self.matches(&[CALL, BEGIN, IF, WHILE]) {
+		if self.matches(&[IF]) {
+			return self.if_statement();
+		}
+		if self.matches(&[WHILE]) {
+			return self.while_statement();
+		}
+		if self.matches(&[CALL]) {
 			todo!("statement types");
 		}
 		return Ok(self.assignment_or_expr()?);
@@ -129,7 +138,20 @@ impl Parser {
 		}
 		Ok(Stmt::Scope(statements))
 	}
-
+	fn if_statement(&mut self) -> Result<Stmt, ParseError> {
+		use TokenType::*;
+		let cond = self.condition()?;
+		self.consume(THEN, "Expected THEN token after IF condition")?;
+		let stmt = self.statement()?;
+		Ok(Stmt::If(cond, Box::new(stmt)))
+	}
+	fn while_statement(&mut self) -> Result<Stmt, ParseError> {
+		use TokenType::*;
+		let cond = self.condition()?;
+		self.consume(DO, "Expected DO token after WHILE condition")?;
+		let stmt = self.statement()?;
+		Ok(Stmt::While(cond, Box::new(stmt)))
+	}
 	fn assignment_or_expr(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
 		let expr = self.expression()?;
@@ -147,6 +169,7 @@ impl Parser {
 			}
 		} else { Ok(Stmt::Expression(expr)) }
 	}
+
 	fn condition(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
 		if self.matches(&[ODD]) {
