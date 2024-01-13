@@ -5,7 +5,7 @@ pub enum Stmt {
 	Print(Expr),
 	PrintVar(Token),
 	Expression(Expr),
-	Var(Token),
+	Var(Vec<Token>),
 	Scope(Vec<Stmt>), // couldn't call it a 'block' because of the EBNF's naming convention
 }
 
@@ -103,10 +103,13 @@ impl Parser {
 	}
 	fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
-		let name = self.consume(IDENTIFIER, "Expected var name")?;
-		// TODO comma, multiple variable declaration
+		let mut names = Vec::new();
+		names.push(self.consume(IDENTIFIER, "Expected var name")?);
+		while self.matches(&[COMMA]) {
+			names.push(self.consume(IDENTIFIER, "Expected var name after comma")?);
+		}
 		self.consume(SEMICOLON, "Expected `;` after var declaration")?;
-		Ok(Stmt::Var(name))
+		Ok(Stmt::Var(names))
 	}
 	fn scope(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;

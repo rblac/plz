@@ -120,7 +120,12 @@ impl Interpreter {
 				println!("> {}: {val}", name.lexeme);
 				Ok(())
 			},
-			Stmt::Var(name) => self.env.declare(name),
+			Stmt::Var(names) => {
+				for name in names {
+					self.env.declare(name)?;
+				}
+				Ok(())
+			},
 			Stmt::Expression(e) => {
 				match self.evaluate(e) {
 					Ok(_) => Ok(()),
