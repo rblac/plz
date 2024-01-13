@@ -11,8 +11,8 @@ statement = [ scope
               | "call" ident 
               | "while" condition "do" statement
               | assignment_or_expr ];
-scope = "begin" statement {";" statement } "end"
-assignment_or_expr = [ident ":="] expression
+scope = "begin" statement {";" statement } [";"] "end" ;
+assignment_or_expr = [ident ":="] expression ;
 
 condition      = "odd" expression | equality;
 equality       = expression ("=="|"!="|"<"|"<="|">"|">=") expression;

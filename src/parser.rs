@@ -115,9 +115,15 @@ impl Parser {
 		use TokenType::*;
 		let mut statements = Vec::new();
 		statements.push(self.statement()?);
-		while !self.is_at_end()
-			&& !self.matches(&[END])
-			&& self.matches(&[SEMICOLON]) {
+		while !self.is_at_end() {
+			if !self.matches(&[SEMICOLON]) {
+				self.consume(END, "Expected END token")?;
+				break
+			}
+			if self.peek().kind == END {
+				self.advance();
+				break
+			}
 			statements.push(self.statement()?);
 		}
 		Ok(Stmt::Scope(statements))
