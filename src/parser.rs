@@ -3,14 +3,17 @@ use crate::{token::{Token, TokenType}, expressions::Expr, error::error};
 
 #[derive(Clone)]
 pub enum Stmt {
+	Var(Vec<Token>),
+	Proc(Token, Box<Vec<Stmt>>),
+
 	Print(Expr),
 	PrintVar(Token),
 	Expression(Expr),
-	Var(Vec<Token>),
 	Scope(Vec<Stmt>), // couldn't call it a 'block' because of the EBNF's naming convention
 	Assign(Token, Expr),
 	If(Expr, Box<Stmt>),
 	While(Expr, Box<Stmt>),
+	Call(Token),
 }
 
 pub struct Parser {
@@ -24,9 +27,7 @@ impl Parser {
 	pub fn parse(&mut self) -> Vec<Stmt> {
 		let mut out = Vec::new();
 		while !self.is_at_end() {
-			if let Some(block) = self.block() {
-				out.push(block);
-			}
+			out.append(&mut self.block())
 		}
 		out
 	}
@@ -75,17 +76,27 @@ impl Parser {
 	}
 
 	// recursive descent functions
-	fn block(&mut self) -> Option<Stmt> {
+	fn block(&mut self) -> Vec<Stmt> {
 		use TokenType::*;
+		let mut out = Vec::new();
+
+		if self.matches(&[VAR]) {
+			let vars = self.var_declaration();
+			if let Some(v) = vars.ok() { out.push(v); }
+		}
 		// TODO consts
+		while self.matches(&[PROCEDURE]) {
+			let proc = self.proc_declaration();
+			if let Some(p) = proc.ok() { out.push(p); }
+		}
+		
+		let stmt = self.statement();
+		if stmt.is_err() { self.synchronise(); }
+		else { out.push(stmt.unwrap()); }
 
-		let result =
-			if self.matches(&[VAR]) { self.var_declaration() }
-			else { self.statement() };
-		if result.is_err() { self.synchronise(); }
-
-		result.ok()
+		out
 	}
+
 	fn statement(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
 		if self.matches(&[BEGIN]) {
@@ -102,6 +113,12 @@ impl Parser {
 		}
 		if self.matches(&[IF]) {
 			return self.if_statement();
+		}
+		if self.matches(&[CALL]) {
+			if self.matches(&[IDENTIFIER]) {
+				return Ok(Stmt::Call(self.previous()));
+			}
+			return Err(self.error("Expected procedure identifier for CALL expression"));
 		}
 		if self.matches(&[WHILE]) {
 			return self.while_statement();
@@ -121,6 +138,15 @@ impl Parser {
 		self.consume(SEMICOLON, "Expected `;` after var declaration")?;
 		Ok(Stmt::Var(names))
 	}
+	fn proc_declaration(&mut self) -> Result<Stmt, ParseError> {
+		use TokenType::*;
+		let name = self.consume(IDENTIFIER, "Expected procedure identifier")?;
+		self.consume(SEMICOLON, "Expected `;` after procedure identifier")?;
+		let block = self.block();
+		self.consume(SEMICOLON, "Expected `;` after procedure block")?;
+		Ok(Stmt::Proc(name, Box::new(block)))
+	}
+
 	fn scope(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
 		let mut statements = Vec::new();

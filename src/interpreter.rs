@@ -1,3 +1,5 @@
+use std::{rc::Rc, cell::RefCell};
+
 use crate::{token::{Literal, TokenType}, parser::Stmt, expressions::Expr, error::RuntimeError, environment::Environment};
 
 #[allow(unused)]
@@ -36,18 +38,16 @@ impl RuntimeValue {
 
 
 pub struct Interpreter {
-	env: Environment,
+	env: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
 	pub fn new() -> Self {
-		Interpreter {
-			env: Environment::new(),
-		}
+		Interpreter { env: Rc::new(RefCell::new(Environment::new())), }
 	}
 	pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), RuntimeError> {
 		for s in statements {
-			self.execute(s)?
+			self.execute(s, &mut self.env.clone())?
 		}
 		Ok(())
 	}
@@ -55,13 +55,13 @@ impl Interpreter {
 		RuntimeError { msg: msg.to_string() }
 	}
 
-	fn evaluate(&mut self, expr: Expr) -> Result<RuntimeValue, RuntimeError> {
+	fn evaluate(&mut self, expr: Expr, env: &Environment) -> Result<RuntimeValue, RuntimeError> {
 		match expr {
 			Expr::Literal(l) =>
 				Ok(RuntimeValue::from_literal(&l.literal.clone().unwrap())),
-			Expr::Grouping(e) => self.evaluate(*e),
+			Expr::Grouping(e) => self.evaluate(*e, env),
 			Expr::Unary(op, e) => {
-				let v = self.evaluate(*e)?.as_value().ok_or(Self::error("not a value"))?;
+				let v = self.evaluate(*e, env)?.as_value().ok_or(Self::error("not a value"))?;
 				use TokenType::*;
 				use RuntimeValue::*;
 				match op.kind {
@@ -71,8 +71,8 @@ impl Interpreter {
 				}
 			},
 			Expr::Binary(a, op, b) => {
-				let va = self.evaluate(*a)?.as_value().ok_or(Self::error("not a value"))?;
-				let vb = self.evaluate(*b)?.as_value().ok_or(Self::error("not a value"))?;
+				let va = self.evaluate(*a, env)?.as_value().ok_or(Self::error("not a value"))?;
+				let vb = self.evaluate(*b, env)?.as_value().ok_or(Self::error("not a value"))?;
 				use TokenType::*;
 				use RuntimeValue::*;
 				match op.kind {
@@ -90,7 +90,7 @@ impl Interpreter {
 				}
 			},
 			Expr::Variable(name) => {
-				if let Some(v) = self.env.get(name.clone())? {
+				if let Some(v) = env.get_var(name.clone())? {
 					Ok(RuntimeValue::Value(v))
 				} else {
 					Err(Self::error(&format!("Use of unitialised variable: {}", name.lexeme)))
@@ -98,10 +98,10 @@ impl Interpreter {
 			},
 		}
 	}
-	fn execute(&mut self, s: Stmt) -> Result<(), RuntimeError> {
+	fn execute(&mut self, s: Stmt, env: &mut Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
 		match s {
 			Stmt::Print(e) => {
-				let v = self.evaluate(e)?;
+				let v = self.evaluate(e, &env.borrow())?;
 				if let Some(val) = v.as_value() {
 					println!("> {val}");
 					return Ok(())
@@ -110,48 +110,57 @@ impl Interpreter {
 				}
 			},
 			Stmt::PrintVar(name) => {
-				let val = self.env.get(name.clone())?;
+				let val = env.borrow().get_var(name.clone())?;
 				let val = match val { Some(i) => i.to_string(), None => "unassigned".to_string() };
 				println!("> {}: {val}", name.lexeme);
 				Ok(())
 			},
 			Stmt::Var(names) => {
 				for name in names {
-					self.env.declare(name)?;
+					env.borrow_mut().declare_var(name)?;
 				}
 				Ok(())
 			},
 			Stmt::Expression(e) => {
-				match self.evaluate(e) {
+				match self.evaluate(e, &env.borrow()) {
 					Ok(_) => Ok(()),
 					Err(e) => Err(e)
 				}
 			},
 			Stmt::Scope(statements) => {
 				for s in statements {
-					self.execute(s)?;
+					self.execute(s, env)?;
 				}
 				Ok(())
 			}
 			Stmt::Assign(name, e) => {
-				let val = self.evaluate(e)?
+				let val = self.evaluate(e, &env.borrow())?
 					.as_value().ok_or(Self::error("not a value"))?;
-				self.env.assign(name, Some(val))?;
+				env.borrow_mut().assign_var(name, Some(val))?;
 				Ok(())
 			},
 			Stmt::If(condition, then_branch) => {
-				if self.evaluate(condition)?
+				if self.evaluate(condition, &env.borrow_mut())?
 					.as_bool().ok_or(Self::error("not a boolean"))? {
-					self.execute(*then_branch)?;
+					self.execute(*then_branch, env)?;
 				}
 				Ok(())
 			},
 			Stmt::While(condition, branch) => {
-				while self.evaluate(condition.clone())?
+				while self.evaluate(condition.clone(), &env.borrow_mut())?
 					.as_bool().ok_or(Self::error("not a boolean"))? {
-					self.execute(*branch.clone())?;
+					self.execute(*branch.clone(), env)?;
 				}
 				Ok(())
+			},
+			Stmt::Proc(name, body) => {
+				env.borrow_mut().define_proc(name, *body)?;
+				Ok(())
+			},
+			Stmt::Call(name) => {
+				let proc = env.borrow_mut().get_proc(name)?;
+				let call_env = Environment::from_parent(env.clone());
+				self.execute(Stmt::Scope(proc), &mut Rc::new(RefCell::new(call_env)))
 			},
 		}
 	}
