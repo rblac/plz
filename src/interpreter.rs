@@ -96,11 +96,6 @@ impl Interpreter {
 					Err(Self::error(&format!("Use of unitialised variable: {}", name.lexeme)))
 				}
 			},
-			Expr::Assign(name, e) => {
-				let val = self.evaluate(*e)?.as_value().ok_or(Self::error("not a value"))?;
-				self.env.assign(name, Some(val))?;
-				Ok(RuntimeValue::Value(val))
-			},
 		}
 	}
 	fn execute(&mut self, s: Stmt) -> Result<(), RuntimeError> {
@@ -138,6 +133,11 @@ impl Interpreter {
 				}
 				Ok(())
 			}
+			Stmt::Assign(name, e) => {
+				let val = self.evaluate(e)?.as_value().ok_or(Self::error("not a value"))?;
+				self.env.assign(name, Some(val))?;
+				Ok(())
+			},
 		}
 	}
 }

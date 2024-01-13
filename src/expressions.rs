@@ -9,7 +9,6 @@ pub enum Expr {
 	Binary(Box<Expr>, Token, Box<Expr>),
 
 	Variable(Token),
-	Assign(Token, Box<Expr>),
 }
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -20,7 +19,6 @@ impl Display for Expr {
 			Unary(o, a) => f.write_str(&format!("({} {a})", o.lexeme)),
 			Binary(a, o, b) => f.write_str(&format!("({} {a} {b})", o.lexeme)),
 			Variable(name) => f.write_str(&format!("`{}`", name.lexeme)),
-			Assign(name, value) => f.write_str(&format!("({} := {value})", name.lexeme)),
 		}
     }
 }

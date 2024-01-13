@@ -7,6 +7,7 @@ pub enum Stmt {
 	Expression(Expr),
 	Var(Vec<Token>),
 	Scope(Vec<Stmt>), // couldn't call it a 'block' because of the EBNF's naming convention
+	Assign(Token, Expr),
 }
 
 pub struct Parser {
@@ -99,7 +100,7 @@ impl Parser {
 		if self.matches(&[CALL, BEGIN, IF, WHILE]) {
 			todo!("statement types");
 		}
-		return Ok(Stmt::Expression(self.assignment_or_expr()?));
+		return Ok(self.assignment_or_expr()?);
 	}
 	fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
@@ -129,23 +130,22 @@ impl Parser {
 		Ok(Stmt::Scope(statements))
 	}
 
-	// Probably unnecessarily complicated for this language's simple syntax, but I wanted to test it out.
-	fn assignment_or_expr(&mut self) -> Result<Expr, ParseError> {
+	fn assignment_or_expr(&mut self) -> Result<Stmt, ParseError> {
 		use TokenType::*;
 		let expr = self.expression()?;
 
 		if self.matches(&[COLON_EQU]) {
-			let value = self.assignment_or_expr()?;
+			let value = self.expression()?;
 			match expr {
-				Expr::Variable(name) => Ok(Expr::Assign(name, Box::new(value))),
+				Expr::Variable(name) => Ok(Stmt::Assign(name, value)),
 				_ => {
 					// Report, but don't throw Err -- no need to synchronise.
 					self.error(&format!("Invalid lvalue: {expr}"));
 					// return lvalue as placeholder
-					Ok(expr)
+					Ok(Stmt::Expression(expr))
 				}
 			}
-		} else { Ok(expr) }
+		} else { Ok(Stmt::Expression(expr)) }
 	}
 	fn condition(&mut self) -> Result<Expr, ParseError> {
 		use TokenType::*;
