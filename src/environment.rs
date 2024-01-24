@@ -40,7 +40,7 @@ impl Environment {
 	}
 	pub fn assign_var(&mut self, name: Token, value: Option<i32>) -> Result<(), RuntimeError> {
 		let lex = name.lexeme.clone();
-		if self.values.insert(lex.clone(), value).is_none() {
+		if !self.values.contains_key(&lex) {
 			if self.parent.is_some() {
 				return self.parent.as_ref().unwrap().borrow_mut().assign_var(name, value)
 			}
@@ -48,7 +48,10 @@ impl Environment {
 				return Err(RuntimeError{msg: format!("Attempting to assign to a const: {}", lex)})
 			}
 			Err(RuntimeError{msg: format!("Assigning to undeclared variable: {}", lex)})
-		} else { Ok(()) }
+		} else {
+			self.values.insert(lex, value);
+			Ok(())
+		}
 	}
 
 	pub fn declare_const(&mut self, name: Token, value: i32) -> Result<(), RuntimeError> {
